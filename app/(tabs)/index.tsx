@@ -1,98 +1,285 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useAuth } from "../../src/presentation/hooks/useAuth";
+import { usePlans } from "../../src/presentation/hooks/usePlans";
+import { useProgress } from "../../src/presentation/hooks/useProgress";
+import { globalStyles } from "../../src/styles/globalStyles";
+import { colors, fontSize, spacing } from "../../src/styles/theme";
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { usuario, cerrarSesion, esEntrenador } = useAuth();
+  const { planActivo, cargarPlanActivo } = usePlans();
+  const { estadisticas, cargarEstadisticas, obtenerProgresoHoy } = useProgress();
+  const [progresoHoy, setProgresoHoy] = useState<any[]>([]);
+  const [refrescando, setRefrescando] = useState(false);
+  const router = useRouter();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  const cargarDatos = async () => {
+    await cargarPlanActivo();
+    await cargarEstadisticas();
+    const progreso = obtenerProgresoHoy();
+    setProgresoHoy(progreso);
+  };
+
+  const handleRefresh = async () => {
+    setRefrescando(true);
+    await cargarDatos();
+    setRefrescando(false);
+  };
+
+  const handleCerrarSesion = async () => {
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro que quieres salir?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Salir",
+          style: "destructive",
+          onPress: async () => {
+            await cerrarSesion();
+            router.replace("/auth/login");
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <ScrollView
+      style={globalStyles.container}
+      refreshControl={
+        <RefreshControl refreshing={refrescando} onRefresh={handleRefresh} />
+      }
+    >
+      {/* HEADER */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.saludo}>¡Hola! 👋</Text>
+          <Text style={globalStyles.textSecondary}>{usuario?.email}</Text>
+          <Text style={styles.rol}>
+            {esEntrenador ? "👨‍🏫 Entrenador" : "🏋️ Usuario"}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[globalStyles.button, globalStyles.buttonDanger, styles.botonCerrar]}
+          onPress={handleCerrarSesion}
+        >
+          <Text style={globalStyles.buttonText}>Salir</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={globalStyles.scrollContent}>
+        {/* ESTADÍSTICAS */}
+        {!esEntrenador && estadisticas && (
+          <View style={styles.section}>
+            <Text style={globalStyles.sectionTitle}>Resumen General</Text>
+            <View style={globalStyles.statsContainer}>
+              <View style={globalStyles.statCard}>
+                <Text style={globalStyles.statValue}>{estadisticas.totalSesiones}</Text>
+                <Text style={globalStyles.statLabel}>Sesiones Totales</Text>
+              </View>
+
+              <View style={globalStyles.statCard}>
+                <Text style={globalStyles.statValue}>
+                  {estadisticas.porcentajeCompletadas}%
+                </Text>
+                <Text style={globalStyles.statLabel}>Completadas</Text>
+              </View>
+
+              <View style={globalStyles.statCard}>
+                <Text style={globalStyles.statValue}>
+                  {estadisticas.promedioCalificacion}
+                </Text>
+                <Text style={globalStyles.statLabel}>Calificación</Text>
+              </View>
+
+              <View style={globalStyles.statCard}>
+                <Text style={globalStyles.statValue}>
+                  {estadisticas.duracionPromedio}
+                </Text>
+                <Text style={globalStyles.statLabel}>Min. Promedio</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* PLAN ACTIVO */}
+        {!esEntrenador && (
+          <View style={styles.section}>
+            <Text style={globalStyles.sectionTitle}>Plan Activo</Text>
+            {planActivo ? (
+              <View style={globalStyles.card}>
+                <Text style={globalStyles.cardTitle}>{planActivo.nombre}</Text>
+                <Text style={globalStyles.cardSubtitle}>
+                  {planActivo.descripcion}
+                </Text>
+                <View style={styles.planInfo}>
+                  <Text style={globalStyles.textSecondary}>
+                    📅 Desde: {new Date(planActivo.fecha_inicio).toLocaleDateString()}
+                  </Text>
+                  {planActivo.fecha_fin && (
+                    <Text style={globalStyles.textSecondary}>
+                      🏁 Hasta: {new Date(planActivo.fecha_fin).toLocaleDateString()}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={[globalStyles.button, globalStyles.buttonPrimary, { marginTop: spacing.md }]}
+                  onPress={() => router.push("/planes")}
+                >
+                  <Text style={globalStyles.buttonText}>Ver Rutinas</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={globalStyles.card}>
+                <Text style={globalStyles.textSecondary}>
+                  No tienes un plan activo. Habla con tu entrenador para crear uno.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* PROGRESO DE HOY */}
+        {!esEntrenador && progresoHoy.length > 0 && (
+          <View style={styles.section}>
+            <Text style={globalStyles.sectionTitle}>Progreso de Hoy</Text>
+            {progresoHoy.map((prog) => (
+              <View key={prog.id} style={globalStyles.card}>
+                <Text style={globalStyles.cardTitle}>
+                  {prog.rutina?.titulo || "Rutina"}
+                </Text>
+                <Text style={globalStyles.textSecondary}>
+                  {prog.completada ? "✅ Completada" : "⏳ Pendiente"}
+                </Text>
+                {prog.duracion_minutos && (
+                  <Text style={globalStyles.textSecondary}>
+                    ⏱️ {prog.duracion_minutos} minutos
+                  </Text>
+                )}
+                {prog.calificacion && (
+                  <Text style={globalStyles.textSecondary}>
+                    ⭐ {prog.calificacion}/5
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ENTRENADOR: ACCESOS RÁPIDOS */}
+        {esEntrenador && (
+          <View style={styles.section}>
+            <Text style={globalStyles.sectionTitle}>Accesos Rápidos</Text>
+            
+            <TouchableOpacity
+              style={[globalStyles.card, styles.accesoCard]}
+              onPress={() => router.push("/routine/crear")}
+            >
+              <Text style={styles.accesoEmoji}>🏋️</Text>
+              <View style={styles.accesoInfo}>
+                <Text style={globalStyles.cardTitle}>Crear Rutina</Text>
+                <Text style={globalStyles.textSecondary}>
+                  Diseña nuevos entrenamientos
+                </Text>
+              </View>
+              <Text style={styles.accesoFlecha}>→</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[globalStyles.card, styles.accesoCard]}
+              onPress={() => router.push("/plan/crear")}
+            >
+              <Text style={styles.accesoEmoji}>📋</Text>
+              <View style={styles.accesoInfo}>
+                <Text style={globalStyles.cardTitle}>Nuevo Plan</Text>
+                <Text style={globalStyles.textSecondary}>
+                  Asigna rutinas a usuarios
+                </Text>
+              </View>
+              <Text style={styles.accesoFlecha}>→</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[globalStyles.card, styles.accesoCard]}
+              onPress={() => router.push("/(tabs)/mis-rutinas")}
+            >
+              <Text style={styles.accesoEmoji}>📚</Text>
+              <View style={styles.accesoInfo}>
+                <Text style={globalStyles.cardTitle}>Mis Rutinas</Text>
+                <Text style={globalStyles.textSecondary}>
+                  Ver y gestionar rutinas
+                </Text>
+              </View>
+              <Text style={styles.accesoFlecha}>→</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: spacing.lg,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  saludo: {
+    fontSize: fontSize.xl,
+    fontWeight: "bold",
+    color: colors.textPrimary,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  rol: {
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    marginTop: spacing.xs / 2,
+    fontWeight: "500",
+  },
+  botonCerrar: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  section: {
+    marginBottom: spacing.lg,
+  },
+  planInfo: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  accesoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  accesoEmoji: {
+    fontSize: 40,
+  },
+  accesoInfo: {
+    flex: 1,
+  },
+  accesoFlecha: {
+    fontSize: fontSize.xl,
+    color: colors.primary,
   },
 });
