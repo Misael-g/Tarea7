@@ -1,38 +1,21 @@
-import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useAuth } from "../../src/presentation/hooks/useAuth";
-import { globalStyles } from "../../src/styles/globalStyles";
-import { borderRadius, colors, fontSize, spacing } from "../../src/styles/theme";
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import { useAuth } from "@/src/presentation/hooks/useAuth";
+import { useRouter } from "expo-router";
+import { colors, spacing, fontSize } from "@/src/styles/theme";
 
-export default function RegistroScreen() {
+export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [rolSeleccionado, setRolSeleccionado] = useState<"entrenador" | "usuario">("usuario");
+  const [nombre, setNombre] = useState("");
+  const [rol, setRol] = useState<"entrenador" | "usuario">("usuario");
   const [cargando, setCargando] = useState(false);
   const { registrar } = useAuth();
   const router = useRouter();
 
-  const handleRegistro = async () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert("Error", "Completa todos los campos");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert("Error", "Las contraseñas no coinciden");
+  const handleRegister = async () => {
+    if (!email || !password || !nombre) {
+      Alert.alert("Error", "Por favor completa todos los campos");
       return;
     }
 
@@ -42,188 +25,161 @@ export default function RegistroScreen() {
     }
 
     setCargando(true);
-    const resultado = await registrar(email, password, rolSeleccionado);
+    const resultado = await registrar(email, password, rol);
     setCargando(false);
 
     if (resultado.success) {
-      const mensaje = resultado.needsEmailConfirmation
-        ? "Cuenta creada. Por favor, revisa tu email para confirmar tu cuenta."
-        : "Cuenta creada correctamente";
-
-      Alert.alert("¡Éxito!", mensaje, [
-        { text: "OK", onPress: () => router.replace("/auth/login") },
-      ]);
+      Alert.alert(
+        "¡Registro exitoso!",
+        "Tu cuenta ha sido creada correctamente",
+        [{ text: "OK", onPress: () => router.replace("/auth/login") }]
+      );
     } else {
-      Alert.alert("Error", resultado.error || "No se pudo crear la cuenta");
+      Alert.alert("Error", resultado.error || "No se pudo registrar");
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={globalStyles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backButton}>← Volver</Text>
-          </TouchableOpacity>
-          <Text style={globalStyles.title}>Crear Cuenta</Text>
-        </View>
+    <View style={styles.container}>
+      <Text style={styles.title}>Crear Cuenta</Text>
 
-        <Text style={globalStyles.inputLabel}>Correo electrónico</Text>
-        <TextInput
-          style={globalStyles.input}
-          placeholder="tu@email.com"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Nombre completo"
+        value={nombre}
+        onChangeText={setNombre}
+      />
 
-        <Text style={globalStyles.inputLabel}>Contraseña</Text>
-        <TextInput
-          style={globalStyles.input}
-          placeholder="Mínimo 6 caracteres"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password-new"
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
 
-        <Text style={globalStyles.inputLabel}>Confirmar Contraseña</Text>
-        <TextInput
-          style={globalStyles.input}
-          placeholder="Repite tu contraseña"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          autoComplete="password-new"
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña (mínimo 6 caracteres)"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
 
-        <Text style={styles.labelRol}>Selecciona tu rol:</Text>
-        <View style={styles.contenedorRoles}>
+      <View style={styles.rolContainer}>
+        <Text style={styles.label}>Tipo de cuenta:</Text>
+        <View style={styles.rolButtons}>
           <TouchableOpacity
-            style={[
-              styles.botonRol,
-              rolSeleccionado === "usuario" && styles.botonRolActivo,
-            ]}
-            onPress={() => setRolSeleccionado("usuario")}
+            style={[styles.rolButton, rol === "usuario" && styles.rolButtonActive]}
+            onPress={() => setRol("usuario")}
           >
-            <Text style={styles.emoji}>🏋️</Text>
-            <Text
-              style={[
-                styles.textoRol,
-                rolSeleccionado === "usuario" && styles.textoRolActivo,
-              ]}
-            >
+            <Text style={[styles.rolText, rol === "usuario" && styles.rolTextActive]}>
               Usuario
             </Text>
-            <Text style={styles.descripcionRol}>
-              Recibe rutinas y planes de entrenamiento
-            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.botonRol,
-              rolSeleccionado === "entrenador" && styles.botonRolActivo,
-            ]}
-            onPress={() => setRolSeleccionado("entrenador")}
+            style={[styles.rolButton, rol === "entrenador" && styles.rolButtonActive]}
+            onPress={() => setRol("entrenador")}
           >
-            <Text style={styles.emoji}>👨‍🏫</Text>
-            <Text
-              style={[
-                styles.textoRol,
-                rolSeleccionado === "entrenador" && styles.textoRolActivo,
-              ]}
-            >
+            <Text style={[styles.rolText, rol === "entrenador" && styles.rolTextActive]}>
               Entrenador
-            </Text>
-            <Text style={styles.descripcionRol}>
-              Crea rutinas y asigna planes a usuarios
             </Text>
           </TouchableOpacity>
         </View>
+      </View>
 
-        <TouchableOpacity
-          style={[
-            globalStyles.button,
-            globalStyles.buttonPrimary,
-            styles.registerButton,
-          ]}
-          onPress={handleRegistro}
-          disabled={cargando}
-        >
-          {cargando ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Text style={globalStyles.buttonText}>Registrarse</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <TouchableOpacity
+        style={[styles.button, cargando && styles.buttonDisabled]}
+        onPress={handleRegister}
+        disabled={cargando}
+      >
+        <Text style={styles.buttonText}>
+          {cargando ? "Registrando..." : "Registrarse"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.back()}>
+        <Text style={styles.link}>¿Ya tienes cuenta? Inicia sesión</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
+  container: {
+    flex: 1,
+    justifyContent: "center",
     padding: spacing.lg,
+    backgroundColor: colors.background,
   },
-  header: {
-    marginBottom: spacing.lg,
+  title: {
+    fontSize: fontSize.xxl,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    marginBottom: spacing.xl,
+    textAlign: "center",
   },
-  backButton: {
+  input: {
+    backgroundColor: colors.white,
+    padding: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.md,
     fontSize: fontSize.md,
-    color: colors.primary,
-    marginBottom: spacing.sm,
   },
-  labelRol: {
+  label: {
     fontSize: fontSize.md,
-    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.sm,
-    marginTop: spacing.md,
+    fontWeight: "600",
   },
-  contenedorRoles: {
-    flexDirection: "row",
-    gap: spacing.sm,
+  rolContainer: {
     marginBottom: spacing.lg,
   },
-  botonRol: {
+  rolButtons: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  rolButton: {
     flex: 1,
     padding: spacing.md,
-    borderRadius: borderRadius.md,
+    borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.border,
     alignItems: "center",
-    backgroundColor: colors.white,
   },
-  botonRolActivo: {
+  rolButtonActive: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
   },
-  emoji: {
-    fontSize: 40,
-    marginBottom: spacing.sm,
+  rolText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
   },
-  textoRol: {
+  rolTextActive: {
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  button: {
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: spacing.md,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: colors.white,
     fontSize: fontSize.md,
     fontWeight: "600",
-    color: colors.textSecondary,
   },
-  textoRolActivo: {
+  link: {
     color: colors.primary,
-    fontWeight: "bold",
-  },
-  descripcionRol: {
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
     textAlign: "center",
-    marginTop: spacing.xs,
-  },
-  registerButton: {
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
+    fontSize: fontSize.sm,
   },
 });

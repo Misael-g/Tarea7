@@ -10,5 +10,9 @@ export interface Progreso {
   foto_url?: string;
   calificacion?: number; // 1-5
   created_at: string;
-  rutina?: Rutina;
+  rutina?: {
+    id: string;
+    titulo: string;
+    nivel?: string;
+  };
 }

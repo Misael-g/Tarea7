@@ -1,20 +1,8 @@
-import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useAuth } from "../../src/presentation/hooks/useAuth";
-import { globalStyles } from "../../src/styles/globalStyles";
-import { colors, fontSize, spacing } from "../../src/styles/theme";
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import { useAuth } from "@/src/presentation/hooks/useAuth";
+import { useRouter } from "expo-router";
+import { colors, spacing, fontSize } from "@/src/styles/theme";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -41,110 +29,83 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={globalStyles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logo}>💪</Text>
-          <Text style={styles.appName}>FitTrainer</Text>
-          <Text style={styles.tagline}>Tu entrenador personal</Text>
-        </View>
+    <View style={styles.container}>
+      <Text style={styles.title}>Iniciar Sesión</Text>
+      
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
 
-        <View style={styles.formContainer}>
-          <Text style={globalStyles.inputLabel}>Correo electrónico</Text>
-          <TextInput
-            style={globalStyles.input}
-            placeholder="tu@email.com"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-          />
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
 
-          <Text style={globalStyles.inputLabel}>Contraseña</Text>
-          <TextInput
-            style={globalStyles.input}
-            placeholder="••••••••"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-          />
+      <TouchableOpacity
+        style={[styles.button, cargando && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={cargando}
+      >
+        <Text style={styles.buttonText}>
+          {cargando ? "Cargando..." : "Entrar"}
+        </Text>
+      </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              globalStyles.button,
-              globalStyles.buttonPrimary,
-              styles.loginButton,
-            ]}
-            onPress={handleLogin}
-            disabled={cargando}
-          >
-            {cargando ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={globalStyles.buttonText}>Iniciar Sesión</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.registerLink}
-            onPress={() => router.push("/auth/registro")}
-          >
-            <Text style={styles.registerLinkText}>
-              ¿No tienes cuenta?{" "}
-              <Text style={styles.registerLinkTextBold}>Regístrate aquí</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <TouchableOpacity onPress={() => router.push("/auth/registro")}>
+        <Text style={styles.link}>¿No tienes cuenta? Regístrate</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    flexGrow: 1,
+  container: {
+    flex: 1,
     justifyContent: "center",
     padding: spacing.lg,
+    backgroundColor: colors.background,
   },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: spacing.xxl,
-  },
-  logo: {
-    fontSize: 80,
-    marginBottom: spacing.md,
-  },
-  appName: {
-    fontSize: fontSize.xxxl,
+  title: {
+    fontSize: fontSize.xxl,
     fontWeight: "bold",
-    color: colors.primary,
-    marginBottom: spacing.xs,
+    color: colors.textPrimary,
+    marginBottom: spacing.xl,
+    textAlign: "center",
   },
-  tagline: {
+  input: {
+    backgroundColor: colors.white,
+    padding: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.md,
     fontSize: fontSize.md,
-    color: colors.textSecondary,
   },
-  formContainer: {
-    width: "100%",
-  },
-  loginButton: {
+  button: {
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: 8,
+    alignItems: "center",
     marginTop: spacing.md,
   },
-  registerLink: {
-    marginTop: spacing.lg,
-    alignItems: "center",
+  buttonDisabled: {
+    opacity: 0.6,
   },
-  registerLinkText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  registerLinkTextBold: {
-    color: colors.primary,
+  buttonText: {
+    color: colors.white,
+    fontSize: fontSize.md,
     fontWeight: "600",
+  },
+  link: {
+    color: colors.primary,
+    textAlign: "center",
+    marginTop: spacing.lg,
+    fontSize: fontSize.sm,
   },
 });

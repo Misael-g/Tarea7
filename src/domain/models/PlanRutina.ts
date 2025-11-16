@@ -1,3 +1,5 @@
+import { Rutina } from "./Rutina";
+
 export interface PlanRutina {
   id: string;
   plan_id: string;
