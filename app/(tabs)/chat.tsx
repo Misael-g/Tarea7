@@ -16,13 +16,13 @@ import { useChatGlobal } from "../../src/presentation/hooks/useChatGlobal";
 import { useAuth } from "../../src/presentation/hooks/useAuth";
 import { colors, fontSize, spacing, borderRadius } from "../../src/styles/theme";
 
-
 export default function ChatScreen() {
   const { usuario } = useAuth();
   const {
     mensajes,
     cargando,
     enviando,
+    realtimeConectado, // ✅ Agregar esto
     enviarMensaje,
     enviarMensajeConFoto,
     seleccionarFoto,
@@ -170,14 +170,22 @@ export default function ChatScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={100}
     >
-      {/* Header */}
+      {/* Header con indicador de conexión */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.headerIcon}>💬</Text>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Chat Global</Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitle}>Chat Global</Text>
+              {/* ✅ Indicador de conexión Realtime */}
+              <View style={[
+                styles.statusIndicator,
+                { backgroundColor: realtimeConectado ? '#4CAF50' : '#FF9800' }
+              ]} />
+            </View>
             <Text style={styles.headerSubtitle}>
               {mensajes.length} {mensajes.length === 1 ? "mensaje" : "mensajes"}
+              {realtimeConectado ? " • En vivo" : " • Reconectando..."}
             </Text>
           </View>
         </View>
@@ -208,7 +216,7 @@ export default function ChatScreen() {
             style={styles.botonEliminarPreview}
             onPress={() => setFotoSeleccionada(null)}
           >
-            <Text style={styles.botonEliminarPreviewText}>❌</Text>
+            <Text style={styles.botonEliminarPreviewText}>✖</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -300,10 +308,20 @@ const styles = StyleSheet.create({
   headerTextContainer: {
     flex: 1,
   },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   headerTitle: {
     fontSize: fontSize.xl,
     fontWeight: "bold",
     color: colors.textPrimary,
+  },
+  statusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   headerSubtitle: {
     fontSize: fontSize.sm,
@@ -445,6 +463,7 @@ const styles = StyleSheet.create({
   },
   botonEliminarPreviewText: {
     fontSize: 16,
+    color: colors.white,
   },
   opcionesContainer: {
     flexDirection: "row",
