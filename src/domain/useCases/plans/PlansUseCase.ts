@@ -2,53 +2,60 @@ import { supabase } from "@/src/data/services/supabaseClient";
 import { Plan, PlanRutina } from "../../models/Plan";
 
 export class PlansUseCase {
-  // ============= PLANES =============
+  // ============= PLANES PÚBLICOS =============
 
-  // Obtener planes (entrenador ve los suyos, usuario ve los asignados)
-  async obtenerPlanes(): Promise<Plan[]> {
+  // Obtener todos los planes públicos (visible para todos)
+  async obtenerPlanesPublicos(): Promise<Plan[]> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data: usuario } = await supabase
-        .from("usuarios")
-        .select("rol")
-        .eq("id", user.id)
-        .single();
-
-      let query = supabase
+      const { data, error } = await supabase
         .from("planes_entrenamiento")
         .select(`
           *,
-          entrenador:usuarios!planes_entrenamiento_entrenador_id_fkey(email, nombre),
-          usuario:usuarios!planes_entrenamiento_usuario_id_fkey(email, nombre)
-        `);
-
-      if (usuario?.rol === "entrenador") {
-        query = query.eq("entrenador_id", user.id);
-      } else {
-        query = query.eq("usuario_id", user.id);
-      }
-
-      const { data, error } = await query.order("created_at", { ascending: false });
+          entrenador:usuarios!planes_entrenamiento_entrenador_id_fkey(email, nombre)
+        `)
+        .eq("publico", true)
+        .eq("activo", true)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.log("❌ Error al obtener planes:", error);
+      console.log("❌ Error al obtener planes públicos:", error);
       return [];
     }
   }
 
-  // Obtener plan por ID con rutinas asignadas
+  // Obtener planes del entrenador (solo los que él creó)
+  async obtenerMisPlanes(): Promise<Plan[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from("planes_entrenamiento")
+        .select(`
+          *,
+          entrenador:usuarios!planes_entrenamiento_entrenador_id_fkey(email, nombre)
+        `)
+        .eq("entrenador_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.log("❌ Error al obtener mis planes:", error);
+      return [];
+    }
+  }
+
+  // Obtener plan por ID
   async obtenerPlanPorId(planId: string): Promise<Plan | null> {
     try {
       const { data, error } = await supabase
         .from("planes_entrenamiento")
         .select(`
           *,
-          entrenador:usuarios!planes_entrenamiento_entrenador_id_fkey(email, nombre),
-          usuario:usuarios!planes_entrenamiento_usuario_id_fkey(email, nombre)
+          entrenador:usuarios!planes_entrenamiento_entrenador_id_fkey(email, nombre)
         `)
         .eq("id", planId)
         .single();
@@ -61,28 +68,11 @@ export class PlansUseCase {
     }
   }
 
-  // Obtener usuarios disponibles (para asignar plan)
-  async obtenerUsuariosDisponibles() {
-    try {
-      const { data, error } = await supabase
-        .from("usuarios")
-        .select("id, email, nombre")
-        .eq("rol", "usuario")
-        .order("email");
-
-      if (error) throw error;
-      return { success: true, usuarios: data || [] };
-    } catch (error: any) {
-      return { success: false, error: error.message, usuarios: [] };
-    }
-  }
-
-  // Crear plan de entrenamiento
+  // Crear plan público
   async crearPlan(
     nombre: string,
     descripcion: string,
     entrenadorId: string,
-    usuarioId: string,
     fechaInicio: string,
     fechaFin: string | null,
     objetivo: string,
@@ -95,12 +85,12 @@ export class PlansUseCase {
           nombre,
           descripcion,
           entrenador_id: entrenadorId,
-          usuario_id: usuarioId,
           fecha_inicio: fechaInicio,
           fecha_fin: fechaFin,
           objetivo,
           notas,
           activo: true,
+          publico: true, // ✅ Siempre público
         })
         .select()
         .single();
@@ -284,37 +274,6 @@ export class PlansUseCase {
     } catch (error) {
       console.log("❌ Error al obtener rutinas del día:", error);
       return [];
-    }
-  }
-
-  // Obtener plan activo del usuario
-  async obtenerPlanActivo(): Promise<Plan | null> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from("planes_entrenamiento")
-        .select(`
-          *,
-          entrenador:usuarios!planes_entrenamiento_entrenador_id_fkey(email, nombre)
-        `)
-        .eq("usuario_id", user.id)
-        .eq("activo", true)
-        .single();
-
-      if (error) {
-        if (error.code === "PGRST116") {
-          // No hay plan activo
-          return null;
-        }
-        throw error;
-      }
-
-      return data as Plan;
-    } catch (error) {
-      console.log("❌ Error al obtener plan activo:", error);
-      return null;
     }
   }
 }

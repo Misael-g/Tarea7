@@ -18,7 +18,7 @@ import { colors, fontSize, spacing } from "../../src/styles/theme";
 
 export default function HomeScreen() {
   const { usuario, cerrarSesion, esEntrenador } = useAuth();
-  const { planActivo, cargarPlanActivo } = usePlans();
+  const { planes, cargarPlanesPublicos } = usePlans();
   const { estadisticas, cargarEstadisticas, obtenerProgresoHoy } = useProgress();
   const [progresoHoy, setProgresoHoy] = useState<any[]>([]);
   const [refrescando, setRefrescando] = useState(false);
@@ -29,10 +29,12 @@ export default function HomeScreen() {
   }, []);
 
   const cargarDatos = async () => {
-    await cargarPlanActivo();
-    await cargarEstadisticas();
-    const progreso = obtenerProgresoHoy();
-    setProgresoHoy(progreso);
+    await cargarPlanesPublicos();
+    if (!esEntrenador) {
+      await cargarEstadisticas();
+      const progreso = obtenerProgresoHoy();
+      setProgresoHoy(progreso);
+    }
   };
 
   const handleRefresh = async () => {
@@ -84,7 +86,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={globalStyles.scrollContent}>
-        {/* ESTADÍSTICAS */}
+        {/* ESTADÍSTICAS (Solo para usuarios) */}
         {!esEntrenador && estadisticas && (
           <View style={styles.section}>
             <Text style={globalStyles.sectionTitle}>Resumen General</Text>
@@ -118,44 +120,70 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* PLAN ACTIVO */}
+        {/* PLANES DISPONIBLES (Para usuarios) */}
         {!esEntrenador && (
           <View style={styles.section}>
-            <Text style={globalStyles.sectionTitle}>Plan Activo</Text>
-            {planActivo ? (
-              <View style={globalStyles.card}>
-                <Text style={globalStyles.cardTitle}>{planActivo.nombre}</Text>
-                <Text style={globalStyles.cardSubtitle}>
-                  {planActivo.descripcion}
-                </Text>
-                <View style={styles.planInfo}>
-                  <Text style={globalStyles.textSecondary}>
-                    📅 Desde: {new Date(planActivo.fecha_inicio).toLocaleDateString()}
-                  </Text>
-                  {planActivo.fecha_fin && (
-                    <Text style={globalStyles.textSecondary}>
-                      🏁 Hasta: {new Date(planActivo.fecha_fin).toLocaleDateString()}
-                    </Text>
-                  )}
-                </View>
-                <TouchableOpacity
-                  style={[globalStyles.button, globalStyles.buttonPrimary, { marginTop: spacing.md }]}
-                  onPress={() => router.push("/planes")}
-                >
-                  <Text style={globalStyles.buttonText}>Ver Rutinas</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
+            <View style={styles.sectionHeader}>
+              <Text style={globalStyles.sectionTitle}>Planes Disponibles</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/planes")}
+              >
+                <Text style={styles.verTodos}>Ver todos →</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {planes.length === 0 ? (
               <View style={globalStyles.card}>
                 <Text style={globalStyles.textSecondary}>
-                  No tienes un plan activo. Habla con tu entrenador para crear uno.
+                  No hay planes disponibles todavía.
                 </Text>
               </View>
+            ) : (
+              planes.slice(0, 3).map((plan) => (
+                <View key={plan.id} style={globalStyles.card}>
+                  <View style={styles.planHeader}>
+                    <Text style={globalStyles.cardTitle}>{plan.nombre}</Text>
+                    {plan.activo && (
+                      <View style={styles.activoBadge}>
+                        <Text style={styles.activoText}>ACTIVO</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  {plan.descripcion && (
+                    <Text style={globalStyles.cardSubtitle} numberOfLines={2}>
+                      {plan.descripcion}
+                    </Text>
+                  )}
+                  
+                  <View style={styles.planInfo}>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoIcon}>👨‍🏫</Text>
+                      <Text style={globalStyles.textSecondary}>
+                        {plan.entrenador?.nombre || plan.entrenador?.email}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoIcon}>📅</Text>
+                      <Text style={globalStyles.textSecondary}>
+                        {new Date(plan.fecha_inicio).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <TouchableOpacity
+                    style={[globalStyles.button, globalStyles.buttonPrimary, { marginTop: spacing.md }]}
+                    onPress={() => router.push(`/plan/detalle?id=${plan.id}`)}
+                  >
+                    <Text style={globalStyles.buttonText}>Ver Rutinas</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
             )}
           </View>
         )}
 
-        {/* PROGRESO DE HOY */}
+        {/* PROGRESO DE HOY (Solo para usuarios) */}
         {!esEntrenador && progresoHoy.length > 0 && (
           <View style={styles.section}>
             <Text style={globalStyles.sectionTitle}>Progreso de Hoy</Text>
@@ -189,27 +217,13 @@ export default function HomeScreen() {
             
             <TouchableOpacity
               style={[globalStyles.card, styles.accesoCard]}
-              onPress={() => router.push("/routine/crear")}
-            >
-              <Text style={styles.accesoEmoji}>🏋️</Text>
-              <View style={styles.accesoInfo}>
-                <Text style={globalStyles.cardTitle}>Crear Rutina</Text>
-                <Text style={globalStyles.textSecondary}>
-                  Diseña nuevos entrenamientos
-                </Text>
-              </View>
-              <Text style={styles.accesoFlecha}>→</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[globalStyles.card, styles.accesoCard]}
               onPress={() => router.push("/plan/crear")}
             >
               <Text style={styles.accesoEmoji}>📋</Text>
               <View style={styles.accesoInfo}>
                 <Text style={globalStyles.cardTitle}>Nuevo Plan</Text>
                 <Text style={globalStyles.textSecondary}>
-                  Asigna rutinas a usuarios
+                  Crea un plan con rutinas
                 </Text>
               </View>
               <Text style={styles.accesoFlecha}>→</Text>
@@ -217,13 +231,13 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={[globalStyles.card, styles.accesoCard]}
-              onPress={() => router.push("/(tabs)/mis-rutinas")}
+              onPress={() => router.push("/(tabs)/planes")}
             >
               <Text style={styles.accesoEmoji}>📚</Text>
               <View style={styles.accesoInfo}>
-                <Text style={globalStyles.cardTitle}>Mis Rutinas</Text>
+                <Text style={globalStyles.cardTitle}>Mis Planes</Text>
                 <Text style={globalStyles.textSecondary}>
-                  Ver y gestionar rutinas
+                  Ver y gestionar planes
                 </Text>
               </View>
               <Text style={styles.accesoFlecha}>→</Text>
@@ -263,9 +277,44 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.lg,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  verTodos: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  planHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  activoBadge: {
+    backgroundColor: colors.success,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+  },
+  activoText: {
+    color: colors.white,
+    fontSize: fontSize.xs,
+    fontWeight: "bold",
+  },
   planInfo: {
     marginTop: spacing.sm,
     gap: spacing.xs,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  infoIcon: {
+    fontSize: fontSize.md,
   },
   accesoCard: {
     flexDirection: "row",

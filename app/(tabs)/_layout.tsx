@@ -32,18 +32,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      
-      {esEntrenador && (
-        <Tabs.Screen
-          name="mis-rutinas"
-          options={{
-            title: "Rutinas",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="paperplane.fill" color={color} />
-            ),
-          }}
-        />
-      )}
 
       <Tabs.Screen
         name="planes"
@@ -55,15 +43,17 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="progreso"
-        options={{
-          title: "Progreso",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
-          ),
-        }}
-      />
+      {!esEntrenador && (
+        <Tabs.Screen
+          name="progreso"
+          options={{
+            title: "Progreso",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="paperplane.fill" color={color} />
+            ),
+          }}
+        />
+      )}
 
       <Tabs.Screen
         name="chat"
@@ -72,6 +62,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="paperplane.fill" color={color} />
           ),
+        }}
+      />
+
+      {/* Ocultar la pantalla mis-rutinas pero mantenerla en el código */}
+      <Tabs.Screen
+        name="mis-rutinas"
+        options={{
+          href: null, // Esto oculta la pestaña
         }}
       />
     </Tabs>

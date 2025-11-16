@@ -6,26 +6,29 @@ const plansUseCase = new PlansUseCase();
 
 export function usePlans() {
   const [planes, setPlanes] = useState<Plan[]>([]);
+  const [misPlanes, setMisPlanes] = useState<Plan[]>([]);
   const [planSeleccionado, setPlanSeleccionado] = useState<Plan | null>(null);
-  const [planActivo, setPlanActivo] = useState<Plan | null>(null);
   const [rutinasDelPlan, setRutinasDelPlan] = useState<PlanRutina[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    cargarPlanes();
-    cargarPlanActivo();
+    cargarPlanesPublicos();
   }, []);
 
-  const cargarPlanes = async () => {
+  // Cargar todos los planes públicos (para usuarios)
+  const cargarPlanesPublicos = async () => {
     setCargando(true);
-    const data = await plansUseCase.obtenerPlanes();
+    const data = await plansUseCase.obtenerPlanesPublicos();
     setPlanes(data);
     setCargando(false);
   };
 
-  const cargarPlanActivo = async () => {
-    const plan = await plansUseCase.obtenerPlanActivo();
-    setPlanActivo(plan);
+  // Cargar mis planes (para entrenadores)
+  const cargarMisPlanes = async () => {
+    setCargando(true);
+    const data = await plansUseCase.obtenerMisPlanes();
+    setMisPlanes(data);
+    setCargando(false);
   };
 
   const obtenerPlanPorId = async (id: string) => {
@@ -34,15 +37,10 @@ export function usePlans() {
     return plan;
   };
 
-  const obtenerUsuariosDisponibles = async () => {
-    return await plansUseCase.obtenerUsuariosDisponibles();
-  };
-
   const crear = async (
     nombre: string,
     descripcion: string,
     entrenadorId: string,
-    usuarioId: string,
     fechaInicio: string,
     fechaFin: string | null,
     objetivo: string,
@@ -52,14 +50,14 @@ export function usePlans() {
       nombre,
       descripcion,
       entrenadorId,
-      usuarioId,
       fechaInicio,
       fechaFin,
       objetivo,
       notas
     );
     if (resultado.success) {
-      await cargarPlanes();
+      await cargarPlanesPublicos();
+      await cargarMisPlanes();
     }
     return resultado;
   };
@@ -85,8 +83,8 @@ export function usePlans() {
       activo
     );
     if (resultado.success) {
-      await cargarPlanes();
-      await cargarPlanActivo();
+      await cargarPlanesPublicos();
+      await cargarMisPlanes();
     }
     return resultado;
   };
@@ -94,8 +92,8 @@ export function usePlans() {
   const eliminar = async (id: string) => {
     const resultado = await plansUseCase.eliminarPlan(id);
     if (resultado.success) {
-      await cargarPlanes();
-      await cargarPlanActivo();
+      await cargarPlanesPublicos();
+      await cargarMisPlanes();
     }
     return resultado;
   };
@@ -103,8 +101,8 @@ export function usePlans() {
   const cambiarEstado = async (id: string, activo: boolean) => {
     const resultado = await plansUseCase.cambiarEstadoPlan(id, activo);
     if (resultado.success) {
-      await cargarPlanes();
-      await cargarPlanActivo();
+      await cargarPlanesPublicos();
+      await cargarMisPlanes();
     }
     return resultado;
   };
@@ -185,15 +183,14 @@ export function usePlans() {
   }, []);
 
   return {
-    planes,
+    planes, // Planes públicos (todos)
+    misPlanes, // Planes del entrenador
     planSeleccionado,
-    planActivo,
     rutinasDelPlan,
     cargando,
-    cargarPlanes,
-    cargarPlanActivo,
+    cargarPlanesPublicos,
+    cargarMisPlanes,
     obtenerPlanPorId,
-    obtenerUsuariosDisponibles,
     crear,
     actualizar,
     eliminar,

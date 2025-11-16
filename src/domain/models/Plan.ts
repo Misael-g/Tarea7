@@ -3,25 +3,20 @@ export interface Plan {
   nombre: string;
   descripcion?: string;
   entrenador_id: string;
-  usuario_id: string;
   fecha_inicio: string;
   fecha_fin?: string;
   objetivo?: string;
   notas?: string;
   activo: boolean;
+  publico: boolean; // Nuevo campo para indicar si es visible para todos
   created_at: string;
   // Datos relacionados
   entrenador?: {
     email: string;
     nombre?: string;
   };
-  usuario?: {
-    email: string;
-    nombre?: string;
-  };
 }
 
-// Exportar también PlanRutina aquí para evitar importaciones circulares
 export interface PlanRutina {
   id: string;
   plan_id: string;
