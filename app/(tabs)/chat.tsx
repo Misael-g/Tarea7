@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,211 +9,255 @@ import {
   Platform,
   StyleSheet,
   ActivityIndicator,
+  Image,
+  Alert,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
-import { useChat } from "../../src/presentation/hooks/useChat";
+import { useChatGlobal } from "../../src/presentation/hooks/useChatGlobal";
 import { useAuth } from "../../src/presentation/hooks/useAuth";
-import { usePlans } from "../../src/presentation/hooks/usePlans";
-import { Mensaje } from "../../src/domain/models/Mensaje";
-import { globalStyles } from "../../src/styles/globalStyles";
-import { colors, fontSize, spacing } from "../../src/styles/theme";
+import { colors, fontSize, spacing, borderRadius } from "../../src/styles/theme";
 
 export default function ChatScreen() {
-  const { usuario, esEntrenador } = useAuth();
-  const { planActivo } = usePlans();
-  const [conversaciones, setConversaciones] = useState<any[]>([]);
-  const [conversacionActiva, setConversacionActiva] = useState<string | null>(null);
-  const [cargandoConversaciones, setCargandoConversaciones] = useState(true);
-
-  // Hook de chat con destinatario específico
+  const { usuario } = useAuth();
   const {
     mensajes,
     cargando,
     enviando,
     enviarMensaje,
-    cargarConversaciones,
-    mensajesNoLeidos,
-    cargarMensajesNoLeidos,
-  } = useChat(conversacionActiva || undefined);
+    enviarMensajeConFoto,
+    seleccionarFoto,
+    tomarFoto,
+    eliminarMensaje,
+    esMiMensaje,
+    formatearHora,
+  } = useChatGlobal();
 
   const [textoMensaje, setTextoMensaje] = useState("");
+  const [fotoSeleccionada, setFotoSeleccionada] = useState<string | null>(null);
+  const [mostrarOpciones, setMostrarOpciones] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      cargarListaConversaciones();
-      cargarMensajesNoLeidos();
-    }, [])
-  );
 
   useEffect(() => {
     if (mensajes.length > 0 && flatListRef.current) {
-      flatListRef.current.scrollToEnd({ animated: true });
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
-  }, [mensajes]);
-
-  const cargarListaConversaciones = async () => {
-    setCargandoConversaciones(true);
-    await cargarConversaciones();
-    setCargandoConversaciones(false);
-
-    // Si es usuario y tiene plan activo, abrir chat con entrenador automáticamente
-    if (!esEntrenador && planActivo && planActivo.entrenador_id) {
-      setConversacionActiva(planActivo.entrenador_id);
-    }
-  };
+  }, [mensajes.length]);
 
   const handleEnviar = async () => {
-    if (!textoMensaje.trim() || enviando || !conversacionActiva) return;
+    if (!textoMensaje.trim() && !fotoSeleccionada) return;
 
-    const mensaje = textoMensaje;
-    setTextoMensaje("");
+    let resultado;
+    if (fotoSeleccionada) {
+      resultado = await enviarMensajeConFoto(textoMensaje, fotoSeleccionada);
+      setFotoSeleccionada(null);
+    } else {
+      resultado = await enviarMensaje(textoMensaje);
+    }
 
-    const resultado = await enviarMensaje(mensaje);
-
-    if (!resultado.success) {
-      alert("Error: " + resultado.error);
-      setTextoMensaje(mensaje);
+    if (resultado.success) {
+      setTextoMensaje("");
+    } else {
+      Alert.alert("Error", resultado.error || "No se pudo enviar el mensaje");
     }
   };
 
-  const renderMensaje = ({ item }: { item: Mensaje }) => {
-    const esMio = item.usuario_id === usuario?.id;
-    const emailUsuario = item.usuario?.email || "desconocido@usuario.com";
-    const rolUsuario = item.usuario?.rol || "usuario";
+  const handleSeleccionarFoto = async () => {
+    setMostrarOpciones(false);
+    const uri = await seleccionarFoto();
+    if (uri) {
+      setFotoSeleccionada(uri);
+    }
+  };
 
-    return (
-      <View
-        style={[
-          styles.mensajeContainer,
-          esMio ? styles.mensajeMio : styles.mensajeOtro,
-        ]}
-      >
-        <View style={styles.headerMensaje}>
-          <Text style={[styles.nombreUsuario, esMio && styles.nombreUsuarioMio]}>
-            {esMio ? "Tú" : emailUsuario}
-          </Text>
-          {rolUsuario === "entrenador" && (
-            <View style={[styles.badge, esMio ? styles.badgeMio : styles.badgeOtro]}>
-              <Text style={styles.badgeText}>👨‍🏫 Entrenador</Text>
-            </View>
-          )}
-        </View>
+  const handleTomarFoto = async () => {
+    setMostrarOpciones(false);
+    const uri = await tomarFoto();
+    if (uri) {
+      setFotoSeleccionada(uri);
+    }
+  };
 
-        <Text style={[styles.contenidoMensaje, esMio && styles.contenidoMensajeMio]}>
-          {item.contenido}
-        </Text>
-
-        <Text style={[styles.horaMensaje, esMio && styles.horaMensajeMio]}>
-          {new Date(item.created_at).toLocaleTimeString("es-ES", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
-      </View>
+  const handleEliminarMensaje = (mensajeId: string) => {
+    Alert.alert(
+      "Eliminar mensaje",
+      "¿Estás seguro de que quieres eliminar este mensaje?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            const resultado = await eliminarMensaje(mensajeId);
+            if (!resultado.success) {
+              Alert.alert("Error", resultado.error || "No se pudo eliminar el mensaje");
+            }
+          },
+        },
+      ]
     );
   };
 
-  // Vista cuando no hay conversación seleccionada
-  if (!conversacionActiva) {
+  const renderMensaje = ({ item }: { item: any }) => {
+    const esMio = esMiMensaje(item, usuario?.id || "");
+    
     return (
-      <View style={globalStyles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Chat</Text>
-          {mensajesNoLeidos > 0 && (
-            <View style={globalStyles.badge}>
-              <Text style={globalStyles.badgeText}>{mensajesNoLeidos}</Text>
-            </View>
-          )}
-        </View>
-
-        {cargandoConversaciones ? (
-          <View style={globalStyles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        ) : (
-          <View style={globalStyles.containerCentered}>
-            {!esEntrenador && planActivo ? (
-              <View style={styles.chatCard}>
-                <Text style={styles.chatCardTitle}>
-                  💬 Chat con tu Entrenador
-                </Text>
-                <Text style={globalStyles.textSecondary}>
-                  {planActivo.entrenador?.email || "Tu entrenador"}
-                </Text>
-                <TouchableOpacity
-                  style={[globalStyles.button, globalStyles.buttonPrimary, { marginTop: spacing.md }]}
-                  onPress={() => setConversacionActiva(planActivo.entrenador_id)}
-                >
-                  <Text style={globalStyles.buttonText}>Abrir Chat</Text>
-                </TouchableOpacity>
-              </View>
+      <View style={[styles.mensajeContainer, esMio && styles.mensajeContainerPropio]}>
+        {!esMio && (
+          <View style={styles.avatarContainer}>
+            {item.usuario?.avatar_url ? (
+              <Image source={{ uri: item.usuario.avatar_url }} style={styles.avatar} />
             ) : (
-              <Text style={globalStyles.emptyState}>
-                {esEntrenador
-                  ? "Selecciona una conversación con tus usuarios"
-                  : "No tienes un plan activo. Contacta a tu entrenador."}
-              </Text>
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>
+                  {item.usuario?.nombre?.[0] || item.usuario?.email[0] || "?"}
+                </Text>
+              </View>
             )}
           </View>
         )}
+
+        <View style={[styles.mensajeBubble, esMio && styles.mensajeBubblePropio]}>
+          {!esMio && (
+            <Text style={styles.nombreUsuario}>
+              {item.usuario?.nombre || item.usuario?.email}
+              {item.usuario?.rol === "entrenador" && " 🏋️"}
+            </Text>
+          )}
+
+          {item.foto_url && (
+            <Image source={{ uri: item.foto_url }} style={styles.fotoMensaje} />
+          )}
+
+          {item.contenido && (
+            <Text style={[styles.textoMensaje, esMio && styles.textoMensajePropio]}>
+              {item.contenido}
+            </Text>
+          )}
+
+          <View style={styles.metadataContainer}>
+            <Text style={[styles.horaMensaje, esMio && styles.horaMensajePropio]}>
+              {formatearHora(item.created_at)}
+            </Text>
+          </View>
+
+          {esMio && (
+            <TouchableOpacity
+              style={styles.botonEliminar}
+              onPress={() => handleEliminarMensaje(item.id)}
+            >
+              <Text style={styles.botonEliminarText}>🗑️</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
-  }
+  };
 
-  // Vista de chat activo
   if (cargando) {
     return (
-      <View style={globalStyles.loadingContainer}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.textoCargando}>Cargando mensajes...</Text>
+        <Text style={styles.loadingText}>Cargando mensajes...</Text>
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={globalStyles.container}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={100}
     >
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setConversacionActiva(null)}>
-          <Text style={styles.backButton}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chat</Text>
-        <View style={{ width: 60 }} />
+        <View style={styles.headerContent}>
+          <Text style={styles.headerIcon}>💬</Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Chat Global</Text>
+            <Text style={styles.headerSubtitle}>
+              {mensajes.length} {mensajes.length === 1 ? "mensaje" : "mensajes"}
+            </Text>
+          </View>
+        </View>
       </View>
 
+      {/* Lista de mensajes */}
       <FlatList
         ref={flatListRef}
         data={mensajes}
         renderItem={renderMensaje}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={styles.listContent}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>💬</Text>
+            <Text style={styles.emptyText}>No hay mensajes aún</Text>
+            <Text style={styles.emptySubtext}>¡Sé el primero en enviar un mensaje!</Text>
+          </View>
+        }
       />
 
+      {/* Preview de foto seleccionada */}
+      {fotoSeleccionada && (
+        <View style={styles.previewContainer}>
+          <Image source={{ uri: fotoSeleccionada }} style={styles.previewImage} />
+          <TouchableOpacity
+            style={styles.botonEliminarPreview}
+            onPress={() => setFotoSeleccionada(null)}
+          >
+            <Text style={styles.botonEliminarPreviewText}>❌</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Opciones de foto */}
+      {mostrarOpciones && (
+        <View style={styles.opcionesContainer}>
+          <TouchableOpacity style={styles.opcionBoton} onPress={handleTomarFoto}>
+            <Text style={styles.opcionTexto}>📷 Tomar foto</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.opcionBoton} onPress={handleSeleccionarFoto}>
+            <Text style={styles.opcionTexto}>🖼️ Galería</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Input de mensaje */}
       <View style={styles.inputContainer}>
+        <TouchableOpacity
+          style={styles.botonAdjuntar}
+          onPress={() => setMostrarOpciones(!mostrarOpciones)}
+        >
+          <Text style={styles.botonAdjuntarText}>
+            {mostrarOpciones ? "✖️" : "➕"}
+          </Text>
+        </TouchableOpacity>
+
         <TextInput
           style={styles.input}
+          placeholder="Escribe un mensaje..."
+          placeholderTextColor={colors.textTertiary}
           value={textoMensaje}
           onChangeText={setTextoMensaje}
-          placeholder="Escribe un mensaje..."
           multiline
           maxLength={500}
         />
+
         <TouchableOpacity
           style={[
             styles.botonEnviar,
-            (!textoMensaje.trim() || enviando) && styles.botonDeshabilitado,
+            (!textoMensaje.trim() && !fotoSeleccionada) && styles.botonEnviarDeshabilitado,
           ]}
           onPress={handleEnviar}
-          disabled={!textoMensaje.trim() || enviando}
+          disabled={(!textoMensaje.trim() && !fotoSeleccionada) || enviando}
         >
-          <Text style={styles.textoBotonEnviar}>
-            {enviando ? "..." : "Enviar"}
-          </Text>
+          {enviando ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Text style={styles.botonEnviarText}>📤</Text>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -221,140 +265,248 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    padding: spacing.md,
+    backgroundColor: colors.background,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: fontSize.md,
+    color: colors.textSecondary,
+  },
+  header: {
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  headerIcon: {
+    fontSize: 32,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: fontSize.xl,
     fontWeight: "bold",
     color: colors.textPrimary,
   },
-  backButton: {
-    fontSize: fontSize.md,
-    color: colors.primary,
-  },
-  textoCargando: {
-    marginTop: spacing.md,
-    fontSize: fontSize.md,
+  headerSubtitle: {
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
-  listContainer: {
+  listContent: {
     padding: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xxl,
+    marginTop: spacing.xxl,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: spacing.md,
+  },
+  emptyText: {
+    fontSize: fontSize.lg,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+  },
+  emptySubtext: {
+    fontSize: fontSize.sm,
+    color: colors.textTertiary,
+    marginTop: spacing.xs,
   },
   mensajeContainer: {
-    maxWidth: "75%",
-    padding: spacing.md,
-    borderRadius: 16,
-    marginBottom: spacing.sm,
-  },
-  mensajeMio: {
-    alignSelf: "flex-end",
-    backgroundColor: colors.primary,
-  },
-  mensajeOtro: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  headerMensaje: {
     flexDirection: "row",
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  mensajeContainerPropio: {
+    justifyContent: "flex-end",
+  },
+  avatarContainer: {
+    marginRight: spacing.sm,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  avatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    justifyContent: "center",
     alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+  },
+  avatarText: {
+    color: colors.white,
+    fontSize: fontSize.sm,
+    fontWeight: "bold",
+  },
+  mensajeBubble: {
+    maxWidth: "75%",
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    position: "relative",
+  },
+  mensajeBubblePropio: {
+    backgroundColor: colors.primary,
   },
   nombreUsuario: {
     fontSize: fontSize.xs,
-    fontWeight: "700",
-    color: colors.textSecondary,
-  },
-  nombreUsuarioMio: {
-    color: "rgba(255, 255, 255, 0.95)",
-  },
-  badge: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  badgeMio: {
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-  },
-  badgeOtro: {
-    backgroundColor: colors.accent,
-  },
-  badgeText: {
-    fontSize: 9,
     fontWeight: "600",
-    color: colors.white,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
   },
-  contenidoMensaje: {
+  fotoMensaje: {
+    width: 200,
+    height: 200,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.xs,
+  },
+  textoMensaje: {
     fontSize: fontSize.md,
     color: colors.textPrimary,
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  contenidoMensajeMio: {
+  textoMensajePropio: {
     color: colors.white,
+  },
+  metadataContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.xs,
+    gap: spacing.xs,
   },
   horaMensaje: {
     fontSize: fontSize.xs,
     color: colors.textTertiary,
-    marginTop: spacing.xs,
-    alignSelf: "flex-end",
   },
-  horaMensajeMio: {
+  horaMensajePropio: {
     color: "rgba(255, 255, 255, 0.7)",
   },
-  inputContainer: {
-    flexDirection: "row",
+  botonEliminar: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.round,
+    width: 28,
+    height: 28,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  botonEliminarText: {
+    fontSize: 14,
+  },
+  previewContainer: {
     padding: spacing.md,
     backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.borderLight,
+    position: "relative",
+  },
+  previewImage: {
+    width: 100,
+    height: 100,
+    borderRadius: borderRadius.md,
+  },
+  botonEliminarPreview: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.round,
+    width: 28,
+    height: 28,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  botonEliminarPreviewText: {
+    fontSize: 16,
+  },
+  opcionesContainer: {
+    flexDirection: "row",
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
+  },
+  opcionBoton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  opcionTexto: {
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+    fontWeight: "500",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    padding: spacing.md,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    gap: spacing.sm,
+  },
+  botonAdjuntar: {
+    padding: spacing.sm,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  botonAdjuntarText: {
+    fontSize: 24,
   },
   input: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.xl,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: 20,
     fontSize: fontSize.md,
+    color: colors.textPrimary,
+    maxHeight: 100,
   },
   botonEnviar: {
-    marginLeft: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
     backgroundColor: colors.primary,
-    borderRadius: 20,
+    borderRadius: borderRadius.round,
+    width: 44,
+    height: 44,
     justifyContent: "center",
+    alignItems: "center",
   },
-  botonDeshabilitado: {
+  botonEnviarDeshabilitado: {
     backgroundColor: colors.borderLight,
   },
-  textoBotonEnviar: {
-    color: colors.white,
-    fontWeight: "600",
-    fontSize: fontSize.md,
-  },
-  chatCard: {
-    backgroundColor: colors.white,
-    padding: spacing.xl,
-    borderRadius: 16,
-    alignItems: "center",
-    margin: spacing.lg,
-  },
-  chatCardTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
+  botonEnviarText: {
+    fontSize: 20,
   },
 });
