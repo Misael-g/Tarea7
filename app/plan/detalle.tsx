@@ -11,6 +11,7 @@ import {
   View,
   Modal,
   Image,
+  Dimensions,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useAuth } from "../../src/presentation/hooks/useAuth";
@@ -19,6 +20,8 @@ import { useRoutines } from "../../src/presentation/hooks/useRoutines";
 import { useProgress } from "../../src/presentation/hooks/useProgress";
 import { globalStyles } from "../../src/styles/globalStyles";
 import { colors, fontSize, spacing, borderRadius } from "../../src/styles/theme";
+
+const { width } = Dimensions.get("window");
 
 export default function DetallePlanScreen() {
   const { id } = useLocalSearchParams();
@@ -33,6 +36,8 @@ export default function DetallePlanScreen() {
   const [modalCrearVisible, setModalCrearVisible] = useState(false);
   const [modalRutinaDetalleVisible, setModalRutinaDetalleVisible] = useState(false);
   const [rutinaDetalleSeleccionada, setRutinaDetalleSeleccionada] = useState<any>(null);
+  const [modalImagenVisible, setModalImagenVisible] = useState(false);
+  const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null);
   
   // Para agregar rutina existente
   const [rutinaSeleccionadaId, setRutinaSeleccionadaId] = useState("");
@@ -124,7 +129,6 @@ export default function DetallePlanScreen() {
     );
 
     if (resultado.success && resultado.rutina) {
-      // Asignar la rutina recién creada al plan
       const orden = rutinasDelPlan.filter(r => r.dia_semana === diaSemanaCrear).length;
       
       await asignarRutina(
@@ -138,7 +142,7 @@ export default function DetallePlanScreen() {
       setModalCrearVisible(false);
       limpiarFormularioCrear();
       await cargarRutinasPlan(id as string);
-      await cargarRutinas(); // Recargar lista de rutinas
+      await cargarRutinas();
     } else {
       Alert.alert("Error", resultado.error || "No se pudo crear la rutina");
     }
@@ -196,8 +200,27 @@ export default function DetallePlanScreen() {
   };
 
   const handleSeleccionarImagen = async () => {
-    const uri = await seleccionarArchivo("imagen");
-    if (uri) setImagenUri(uri);
+    Alert.alert(
+      "Agregar Imagen",
+      "Elige cómo obtener la imagen",
+      [
+        {
+          text: "📷 Tomar Foto",
+          onPress: async () => {
+            const uri = await seleccionarArchivo("imagen");
+            if (uri) setImagenUri(uri);
+          },
+        },
+        {
+          text: "🖼️ Galería",
+          onPress: async () => {
+            const uri = await seleccionarArchivo("imagen");
+            if (uri) setImagenUri(uri);
+          },
+        },
+        { text: "Cancelar", style: "cancel" },
+      ]
+    );
   };
 
   const handleSeleccionarVideo = async () => {
@@ -229,12 +252,26 @@ export default function DetallePlanScreen() {
     setModalRutinaDetalleVisible(true);
   };
 
+  const ampliarImagen = (imageUrl: string) => {
+    setImagenAmpliada(imageUrl);
+    setModalImagenVisible(true);
+  };
+
   const getNivelColor = (nivel?: string) => {
     switch (nivel) {
       case "principiante": return colors.principiante;
       case "intermedio": return colors.intermedio;
       case "avanzado": return colors.avanzado;
       default: return colors.textSecondary;
+    }
+  };
+
+  const getNivelIcon = (nivel?: string) => {
+    switch (nivel) {
+      case "principiante": return "🌱";
+      case "intermedio": return "💪";
+      case "avanzado": return "🔥";
+      default: return "⭐";
     }
   };
 
@@ -270,7 +307,7 @@ export default function DetallePlanScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>← Volver</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Plan de Entrenamiento</Text>
+        <Text style={styles.headerTitle}>Plan</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -321,48 +358,45 @@ export default function DetallePlanScreen() {
               <Text style={globalStyles.textSecondary}>{plan.objetivo}</Text>
             </View>
           )}
-
-          {plan.notas && (
-            <View style={styles.notasContainer}>
-              <Text style={globalStyles.textBold}>📝 Notas:</Text>
-              <Text style={globalStyles.textSecondary}>{plan.notas}</Text>
-            </View>
-          )}
         </View>
 
         {/* RUTINAS DEL PLAN */}
         <View style={styles.sectionHeader}>
-          <Text style={globalStyles.sectionTitle}>
-            Rutinas de la Semana ({rutinasDelPlan.length})
-          </Text>
+          <View>
+            <Text style={styles.sectionTitle}>
+              💪 Rutinas de la Semana
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              {rutinasDelPlan.length} {rutinasDelPlan.length === 1 ? "rutina" : "rutinas"} asignadas
+            </Text>
+          </View>
           {esEntrenador && esMiPlan && (
             <View style={styles.botonesAgregar}>
               <TouchableOpacity
                 style={[globalStyles.button, globalStyles.buttonSecondary, styles.btnAgregar]}
                 onPress={() => setModalAgregarVisible(true)}
               >
-                <Text style={globalStyles.buttonText}>📋 Existente</Text>
+                <Text style={globalStyles.buttonText}>📋</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[globalStyles.button, globalStyles.buttonPrimary, styles.btnAgregar]}
                 onPress={() => setModalCrearVisible(true)}
               >
-                <Text style={globalStyles.buttonText}>+ Nueva</Text>
+                <Text style={globalStyles.buttonText}>+</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
         {rutinasDelPlan.length === 0 ? (
-          <View style={globalStyles.card}>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyIcon}>📭</Text>
+            <Text style={styles.emptyTitle}>No hay rutinas asignadas</Text>
             <Text style={globalStyles.textSecondary}>
-              No hay rutinas asignadas a este plan.
+              {esEntrenador && esMiPlan
+                ? "Presiona los botones de arriba para agregar rutinas"
+                : "El entrenador aún no ha asignado rutinas"}
             </Text>
-            {esEntrenador && esMiPlan && (
-              <Text style={[globalStyles.textTertiary, { marginTop: spacing.sm }]}>
-                Presiona los botones de arriba para agregar rutinas
-              </Text>
-            )}
           </View>
         ) : (
           diasConRutinas.map((dia) => (
@@ -377,8 +411,8 @@ export default function DetallePlanScreen() {
               </View>
 
               {dia.rutinas.length === 0 ? (
-                <View style={[globalStyles.card, styles.diaVacio]}>
-                  <Text style={globalStyles.textSecondary}>Día de descanso 😴</Text>
+                <View style={styles.diaVacioCard}>
+                  <Text style={styles.diaVacioText}>Día de descanso 😴</Text>
                 </View>
               ) : (
                 dia.rutinas.map((planRutina) => {
@@ -389,75 +423,99 @@ export default function DetallePlanScreen() {
                   const completada = estaCompletada(rutina.id, hoy);
 
                   return (
-                    <View key={planRutina.id} style={globalStyles.card}>
-                      <TouchableOpacity
-                        onPress={() => abrirDetalleRutina(planRutina)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={globalStyles.rowBetween}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={globalStyles.cardTitle}>{rutina.titulo}</Text>
-                            {completada && (
-                              <Text style={styles.completadaBadge}>✅ Completada hoy</Text>
-                            )}
-                          </View>
+                    <TouchableOpacity
+                      key={planRutina.id}
+                      style={styles.rutinaCard}
+                      onPress={() => abrirDetalleRutina(planRutina)}
+                      activeOpacity={0.7}
+                    >
+                      {/* Imagen miniatura */}
+                      {rutina.imagen_url ? (
+                        <TouchableOpacity
+                          onPress={() => ampliarImagen(rutina.imagen_url!)}
+                          activeOpacity={0.9}
+                        >
+                          <Image
+                            source={{ uri: rutina.imagen_url }}
+                            style={styles.rutinaImagen}
+                            resizeMode="cover"
+                          />
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.rutinaImagenPlaceholder}>
+                          <Text style={styles.rutinaImagenIcon}>🏋️</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.rutinaContent}>
+                        <View style={styles.rutinaHeader}>
+                          <Text style={styles.rutinaTitulo} numberOfLines={2}>
+                            {rutina.titulo}
+                          </Text>
                           {rutina.nivel && (
                             <View style={[styles.nivelChip, { backgroundColor: getNivelColor(rutina.nivel) }]}>
-                              <Text style={styles.nivelText}>{rutina.nivel}</Text>
+                              <Text style={styles.nivelText}>
+                                {getNivelIcon(rutina.nivel)}
+                              </Text>
                             </View>
                           )}
                         </View>
 
                         {rutina.descripcion && (
-                          <Text style={globalStyles.cardSubtitle} numberOfLines={2}>
+                          <Text style={styles.rutinaDescripcion} numberOfLines={2}>
                             {rutina.descripcion}
                           </Text>
                         )}
 
                         <View style={styles.rutinaInfo}>
                           {rutina.duracion_minutos && (
-                            <View style={styles.infoRow}>
-                              <Text style={styles.infoIcon}>⏱️</Text>
-                              <Text style={globalStyles.textSecondary}>
+                            <View style={styles.rutinaInfoItem}>
+                              <Text style={styles.rutinaInfoIcon}>⏱️</Text>
+                              <Text style={styles.rutinaInfoText}>
                                 {rutina.duracion_minutos} min
                               </Text>
                             </View>
                           )}
-                          {rutina.imagen_url && (
-                            <View style={styles.infoRow}>
-                              <Text style={styles.infoIcon}>📷</Text>
-                              <Text style={globalStyles.textSecondary}>Con imagen</Text>
+                          {rutina.video_url && (
+                            <View style={styles.rutinaInfoItem}>
+                              <Text style={styles.rutinaInfoIcon}>🎥</Text>
+                              <Text style={styles.rutinaInfoText}>Con video</Text>
                             </View>
                           )}
-                          {rutina.video_url && (
-                            <View style={styles.infoRow}>
-                              <Text style={styles.infoIcon}>🎥</Text>
-                              <Text style={globalStyles.textSecondary}>Con video</Text>
+                          {completada && (
+                            <View style={styles.completadaBadge}>
+                              <Text style={styles.completadaText}>✅ Hoy</Text>
                             </View>
                           )}
                         </View>
-                      </TouchableOpacity>
 
-                      <View style={globalStyles.cardActions}>
-                        {!esEntrenador && !completada && (
-                          <TouchableOpacity
-                            style={[globalStyles.button, globalStyles.buttonPrimary, styles.btnRutina]}
-                            onPress={() => handleMarcarCompletada(rutina.id)}
-                          >
-                            <Text style={globalStyles.buttonText}>✓ Completar</Text>
-                          </TouchableOpacity>
-                        )}
+                        <View style={styles.rutinaActions}>
+                          {!esEntrenador && !completada && (
+                            <TouchableOpacity
+                              style={styles.completarButton}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleMarcarCompletada(rutina.id);
+                              }}
+                            >
+                              <Text style={styles.completarButtonText}>✓ Completar</Text>
+                            </TouchableOpacity>
+                          )}
 
-                        {esEntrenador && esMiPlan && (
-                          <TouchableOpacity
-                            style={[globalStyles.button, globalStyles.buttonDanger, styles.btnRutina]}
-                            onPress={() => handleEliminarRutinaDePlan(planRutina.id)}
-                          >
-                            <Text style={globalStyles.buttonText}>🗑️ Quitar</Text>
-                          </TouchableOpacity>
-                        )}
+                          {esEntrenador && esMiPlan && (
+                            <TouchableOpacity
+                              style={styles.eliminarButton}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleEliminarRutinaDePlan(planRutina.id);
+                              }}
+                            >
+                              <Text style={styles.eliminarButtonText}>🗑️</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })
               )}
@@ -465,16 +523,13 @@ export default function DetallePlanScreen() {
           ))
         )}
 
-        {/* ACCIONES DEL ENTRENADOR */}
         {esEntrenador && esMiPlan && (
-          <View style={styles.accionesContainer}>
-            <TouchableOpacity
-              style={[globalStyles.button, globalStyles.buttonAccent]}
-              onPress={() => router.push(`/plan/editar?id=${plan.id}`)}
-            >
-              <Text style={globalStyles.buttonText}>✏️ Editar Plan</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[globalStyles.button, globalStyles.buttonAccent, { marginTop: spacing.lg }]}
+            onPress={() => router.push(`/plan/editar?id=${plan.id}`)}
+          >
+            <Text style={globalStyles.buttonText}>✏️ Editar Plan</Text>
+          </TouchableOpacity>
         )}
 
         <View style={{ height: spacing.xxl }} />
@@ -683,10 +738,18 @@ export default function DetallePlanScreen() {
                   </Text>
 
                   {rutinaDetalleSeleccionada.rutina.imagen_url && (
-                    <Image
-                      source={{ uri: rutinaDetalleSeleccionada.rutina.imagen_url }}
-                      style={styles.imagenDetalle}
-                    />
+                    <TouchableOpacity
+                      onPress={() => {
+                        ampliarImagen(rutinaDetalleSeleccionada.rutina.imagen_url);
+                        setModalRutinaDetalleVisible(false);
+                      }}
+                    >
+                      <Image
+                        source={{ uri: rutinaDetalleSeleccionada.rutina.imagen_url }}
+                        style={styles.imagenDetalle}
+                      />
+                      <Text style={styles.ampliarHint}>👆 Toca para ampliar</Text>
+                    </TouchableOpacity>
                   )}
 
                   {rutinaDetalleSeleccionada.rutina.descripcion && (
@@ -699,9 +762,11 @@ export default function DetallePlanScreen() {
                     {rutinaDetalleSeleccionada.rutina.nivel && (
                       <View style={styles.infoRow}>
                         <Text style={globalStyles.textBold}>Nivel:</Text>
-                        <Text style={globalStyles.textSecondary}>
-                          {rutinaDetalleSeleccionada.rutina.nivel}
-                        </Text>
+                        <View style={[styles.nivelChip, { backgroundColor: getNivelColor(rutinaDetalleSeleccionada.rutina.nivel) }]}>
+                          <Text style={styles.nivelText}>
+                            {getNivelIcon(rutinaDetalleSeleccionada.rutina.nivel)} {rutinaDetalleSeleccionada.rutina.nivel}
+                          </Text>
+                        </View>
                       </View>
                     )}
                     {rutinaDetalleSeleccionada.rutina.duracion_minutos && (
@@ -733,6 +798,38 @@ export default function DetallePlanScreen() {
               )}
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* MODAL: IMAGEN AMPLIADA */}
+      <Modal
+        visible={modalImagenVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalImagenVisible(false)}
+      >
+        <View style={styles.modalImagenContainer}>
+          <TouchableOpacity
+            style={styles.modalImagenCloseArea}
+            activeOpacity={1}
+            onPress={() => setModalImagenVisible(false)}
+          >
+            <View style={styles.modalImagenContent}>
+              {imagenAmpliada && (
+                <Image
+                  source={{ uri: imagenAmpliada }}
+                  style={styles.imagenAmpliada}
+                  resizeMode="contain"
+                />
+              )}
+              <TouchableOpacity
+                style={styles.modalImagenCloseButton}
+                onPress={() => setModalImagenVisible(false)}
+              >
+                <Text style={styles.modalImagenCloseText}>✕ Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         </View>
       </Modal>
     </View>
@@ -787,19 +884,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     borderRadius: borderRadius.sm,
   },
-  notasContainer: {
-    marginTop: spacing.sm,
-    padding: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.sm,
-  },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-    flexWrap: "wrap",
-    gap: spacing.sm,
+    alignItems: "flex-start",
+    marginBottom: spacing.md,
+    marginTop: spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+  },
+  sectionSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   botonesAgregar: {
     flexDirection: "row",
@@ -808,6 +908,26 @@ const styles = StyleSheet.create({
   btnAgregar: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    minWidth: 44,
+  },
+  emptyCard: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    alignItems: "center",
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: colors.border,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   diaContainer: {
     marginBottom: spacing.lg,
@@ -817,6 +937,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   diaNombre: {
     fontSize: fontSize.lg,
@@ -836,22 +957,53 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: "bold",
   },
-  diaVacio: {
+  diaVacioCard: {
     backgroundColor: colors.background,
-    alignItems: "center",
+    borderRadius: borderRadius.md,
     padding: spacing.lg,
+    alignItems: "center",
   },
-  completadaBadge: {
-    color: colors.success,
-    fontSize: fontSize.sm,
-    fontWeight: "bold",
-    marginTop: spacing.xs,
+  diaVacioText: {
+    fontSize: fontSize.md,
+    color: colors.textSecondary,
   },
-  rutinaInfo: {
+  rutinaCard: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  rutinaImagen: {
+    width: "100%",
+    height: 150,
+  },
+  rutinaImagenPlaceholder: {
+    width: "100%",
+    height: 150,
+    backgroundColor: colors.borderLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  rutinaImagenIcon: {
+    fontSize: 48,
+  },
+  rutinaContent: {
+    padding: spacing.md,
+  },
+  rutinaHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-    marginTop: spacing.sm,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: spacing.sm,
+  },
+  rutinaTitulo: {
+    fontSize: fontSize.lg,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    flex: 1,
+    marginRight: spacing.sm,
   },
   nivelChip: {
     paddingHorizontal: spacing.sm,
@@ -862,13 +1014,69 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fontSize.xs,
     fontWeight: "600",
-    textTransform: "uppercase",
   },
-  btnRutina: {
+  rutinaDescripcion: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: spacing.sm,
+  },
+  rutinaInfo: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  rutinaInfoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  rutinaInfoIcon: {
+    fontSize: fontSize.md,
+  },
+  rutinaInfoText: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+  },
+  completadaBadge: {
+    backgroundColor: colors.success,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+  },
+  completadaText: {
+    color: colors.white,
+    fontSize: fontSize.xs,
+    fontWeight: "bold",
+  },
+  rutinaActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  completarButton: {
     flex: 1,
+    backgroundColor: colors.success,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
   },
-  accionesContainer: {
-    marginTop: spacing.lg,
+  completarButtonText: {
+    color: colors.white,
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+  },
+  eliminarButton: {
+    backgroundColor: colors.error,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eliminarButtonText: {
+    fontSize: fontSize.md,
   },
   pickerContainer: {
     backgroundColor: colors.white,
@@ -922,6 +1130,12 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 200,
     borderRadius: borderRadius.md,
+    marginBottom: spacing.xs,
+  },
+  ampliarHint: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    textAlign: "center",
     marginBottom: spacing.md,
   },
   infoDetalle: {
@@ -929,5 +1143,40 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: borderRadius.md,
     gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  modalImagenContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalImagenCloseArea: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  modalImagenContent: {
+    width: "100%",
+    alignItems: "center",
+  },
+  imagenAmpliada: {
+    width: width - spacing.lg * 2,
+    height: width - spacing.lg * 2,
+    borderRadius: borderRadius.md,
+  },
+  modalImagenCloseButton: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  modalImagenCloseText: {
+    fontSize: fontSize.md,
+    fontWeight: "bold",
+    color: colors.textPrimary,
   },
 });
