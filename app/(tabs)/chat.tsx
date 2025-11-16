@@ -16,6 +16,7 @@ import { useChatGlobal } from "../../src/presentation/hooks/useChatGlobal";
 import { useAuth } from "../../src/presentation/hooks/useAuth";
 import { colors, fontSize, spacing, borderRadius } from "../../src/styles/theme";
 
+
 export default function ChatScreen() {
   const { usuario } = useAuth();
   const {
